@@ -1,8 +1,12 @@
-/** The study itself: hypotheses declared before results, then measured
- * with the toolkit. frozen-eval holds the accuracy bars, calibrated
- * measures whether the confidence is honest, and ab-significance decides
- * whether routing's win is real or noise. The verdict on each hypothesis
- * is whatever the numbers say - including the ones that fail. */
+/** A DEMONSTRATION, not a discovery. The synthetic world is designed with
+ * a known trade planted in it: specialists that are accurate on their
+ * domain but overconfident everywhere. The study's job is to show that the
+ * toolkit MEASURES that trade correctly - frozen-eval holds the bars,
+ * ab-significance tests whether the accuracy win is real (rather than
+ * reading a planted +10pp credulously), and calibrated catches the
+ * overconfidence a naive accuracy eval would ship. The value is the
+ * methodology surfacing what an accuracy number hides, on a world where we
+ * know the ground truth; it is not evidence about real models. */
 
 import { compareModels } from 'ab-significance';
 import type { Outcome } from 'ab-significance';
@@ -23,12 +27,22 @@ export const BARS: Bar[] = [
   { metric: 'ece', op: '<=', value: 0.1, note: 'confidence must be honest enough to act on' }
 ];
 
-/** Declared before results: what we expect routing to do. */
-export const HYPOTHESES = {
-  H1: 'the routed system is more accurate than the generalist alone, beyond sampling noise',
-  H2: 'routing does not hurt the unspecialised domain (no cross-task interference)',
-  H3: 'the routed system is overconfident: it clears the accuracy bar but fails the calibration bar'
+/** What the toolkit is asked to detect on this designed world. These are
+ * not open empirical questions - the world was built to exhibit them - so
+ * they are framed as "does the measurement confirm the planted property?".
+ * The claim of the study is that the tooling reports them correctly, not
+ * that they were unknown. */
+export const CHECKS = {
+  C1: 'ab-significance confirms routing beats the generalist beyond sampling noise (the planted +accuracy is real, not credulously read)',
+  C3: 'calibrated + frozen-eval catch the planted overconfidence: the routed system clears the accuracy bar but fails the calibration bar'
 } as const;
+
+/** An INVARIANT, not a hypothesis. Routing dispatches the unspecialised
+ * domain to the same generalist the baseline uses, so its outcomes are
+ * identical by construction. This is verified as a dispatch-correctness
+ * property; it cannot fail, and is not presented as a finding. */
+export const INVARIANT =
+  'routing leaves the unspecialised domain byte-identical to the baseline (dispatch correctness)';
 
 export function buildModels(): Model[] {
   return [
@@ -71,9 +85,9 @@ export interface StudyReport {
   seed: number;
   n: number;
   systems: SystemResult[];
-  h1: { statement: string; comparison: ReturnType<typeof compareModels>; held: boolean };
-  h2: { statement: string; unspecialised: string; generalistAcc: number; routedAcc: number; held: boolean };
-  h3: { statement: string; clearedAccuracy: boolean; failedCalibration: boolean; held: boolean };
+  c1: { statement: string; comparison: ReturnType<typeof compareModels>; confirmed: boolean };
+  invariant: { statement: string; unspecialised: string; generalistAcc: number; routedAcc: number; identical: boolean };
+  c3: { statement: string; clearedAccuracy: boolean; failedCalibration: boolean; confirmed: boolean };
 }
 
 export async function runStudy(seed = 1, perDomain = 300): Promise<StudyReport> {
@@ -107,17 +121,18 @@ export async function runStudy(seed = 1, perDomain = 300): Promise<StudyReport> 
     systems.push({ label, accuracy: accuracyOf(scored), ece, verdict, perDomain: perDomainAccuracy(scored) });
   }
 
-  // H1: routed vs generalist, is the improvement separable from noise?
+  // C1: does ab-significance confirm routing's win is separable from noise?
   const comparison = compareModels(outcomes(g), outcomes(routed), { minEffectPct: 2 });
-  const h1Held = comparison.verdict === 'B better';
+  const c1Confirmed = comparison.verdict === 'B better';
 
-  // H2: the unspecialised domain must not be worse under routing
+  // Invariant: the unspecialised domain is routed to the generalist, so its
+  // outcomes are identical to the baseline. Verified, not hypothesised.
   const unspecialised = DOMAINS.find((d) => !SPECIALISED.includes(d))!;
   const gDom = perDomainAccuracy(g)[unspecialised];
   const rDom = perDomainAccuracy(routed)[unspecialised];
-  const h2Held = rDom >= gDom - 0.02; // no meaningful regression
+  const identical = rDom === gDom;
 
-  // H3: routed clears accuracy but fails calibration
+  // C3: do calibrated + frozen-eval catch the planted overconfidence?
   const routedSystem = systems[1];
   const clearedAccuracy = routedSystem.verdict.results.find((r) => r.metric === 'accuracy')!.pass;
   const failedCalibration = !routedSystem.verdict.results.find((r) => r.metric === 'ece')!.pass;
@@ -126,8 +141,8 @@ export async function runStudy(seed = 1, perDomain = 300): Promise<StudyReport> 
     seed,
     n: corpus.length,
     systems,
-    h1: { statement: HYPOTHESES.H1, comparison, held: h1Held },
-    h2: { statement: HYPOTHESES.H2, unspecialised, generalistAcc: gDom, routedAcc: rDom, held: h2Held },
-    h3: { statement: HYPOTHESES.H3, clearedAccuracy, failedCalibration, held: clearedAccuracy && failedCalibration }
+    c1: { statement: CHECKS.C1, comparison, confirmed: c1Confirmed },
+    invariant: { statement: INVARIANT, unspecialised, generalistAcc: gDom, routedAcc: rDom, identical },
+    c3: { statement: CHECKS.C3, clearedAccuracy, failedCalibration, confirmed: clearedAccuracy && failedCalibration }
   };
 }

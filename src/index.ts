@@ -1,4 +1,4 @@
-export { BARS, HYPOTHESES, buildModels, runStudy } from './study.ts';
+export { BARS, CHECKS, INVARIANT, buildModels, runStudy } from './study.ts';
 export type { StudyReport, SystemResult } from './study.ts';
 export { registry, runGeneralist, runOracle, runRouted } from './systems.ts';
 export type { Scored } from './systems.ts';

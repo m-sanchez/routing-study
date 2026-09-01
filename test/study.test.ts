@@ -39,18 +39,15 @@ test('each domain routes to its specialist, and the unspecialised one to the gen
   assert.deepEqual([...byDomain.get('timeline')!], ['generalist-v1'], 'no specialist -> generalist');
 });
 
-test('the headline finding holds at the reported seed: accurate but overconfident', async () => {
+test('the toolkit detects the planted trade at the reported seed', async () => {
   const report = await runStudy(1, 300);
 
-  // H1: routing is a real, separable improvement
-  assert.ok(report.h1.held, 'routing beats the generalist beyond noise');
-  assert.equal(report.h1.comparison.verdict, 'B better');
+  // C1: ab-significance confirms the accuracy win is separable from noise
+  assert.ok(report.c1.confirmed, 'routing beats the generalist beyond noise');
+  assert.equal(report.c1.comparison.verdict, 'B better');
 
-  // H2: no interference on the unspecialised domain
-  assert.ok(report.h2.held, 'the unspecialised domain is not hurt');
-
-  // H3: the routed system clears accuracy but fails calibration
-  assert.ok(report.h3.held, 'accurate but overconfident');
+  // C3: calibrated + frozen-eval catch the planted overconfidence
+  assert.ok(report.c3.confirmed, 'accurate but overconfident');
   const routed = report.systems.find((s) => s.label === 'careful-router routed')!;
   assert.ok(routed.accuracy > 0.75, 'clears the accuracy bar');
   assert.ok(routed.ece > 0.1, 'fails the calibration bar');
@@ -58,4 +55,13 @@ test('the headline finding holds at the reported seed: accurate but overconfiden
   // the generalist is the mirror image: honest but not accurate enough
   const gen = report.systems[0];
   assert.ok(gen.accuracy < 0.75 && gen.ece < 0.1, 'honest but below the ship bar');
+});
+
+test('the dispatch invariant is exact, not approximate: identical by construction', async () => {
+  const report = await runStudy(1, 300);
+  // routing sends the unspecialised domain to the same generalist, so the
+  // outcomes are byte-identical - this is a correctness invariant that
+  // cannot fail, deliberately not framed as an empirical hypothesis
+  assert.equal(report.invariant.generalistAcc, report.invariant.routedAcc);
+  assert.ok(report.invariant.identical);
 });

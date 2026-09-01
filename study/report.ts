@@ -1,11 +1,15 @@
 /** npm run study: run the whole thing and print the report. Seeded and
- * reproducible; the numbers in the README come from this. */
+ * reproducible; the numbers in the README come from this.
+ *
+ * This is a demonstration on a designed synthetic world - the trade it
+ * surfaces was planted - so it reports "checks the toolkit confirms" and a
+ * verified dispatch invariant, not empirical discoveries. */
 
 import { runStudy } from '../src/study.ts';
 
 const report = await runStudy(1, 300);
 
-console.log(`routing study - ${report.n} examples over 4 domains, seed ${report.seed}\n`);
+console.log(`routing study (synthetic, seeded ${report.seed}) - ${report.n} examples over 4 domains\n`);
 
 console.log('system                   accuracy   ECE     accuracy bar   calibration bar');
 for (const s of report.systems) {
@@ -21,22 +25,24 @@ console.log('\nper-domain accuracy (generalist -> routed):');
 for (const d of Object.keys(report.systems[0].perDomain)) {
   const g = report.systems[0].perDomain[d];
   const r = report.systems[1].perDomain[d];
-  const tag = d === report.h2.unspecialised ? '  (no specialist)' : '';
+  const tag = d === report.invariant.unspecialised ? '  (no specialist)' : '';
   console.log(`  ${d.padEnd(10)} ${(g * 100).toFixed(1)}% -> ${(r * 100).toFixed(1)}%${tag}`);
 }
 
-console.log('\nhypotheses declared before the run:');
-line('H1', report.h1.statement, report.h1.held);
-console.log(`     ${report.h1.comparison.statement}`);
-line('H2', report.h2.statement, report.h2.held);
+console.log('\nwhat the toolkit was asked to detect on this designed world:');
+check('C1', report.c1.statement, report.c1.confirmed);
+console.log(`     ${report.c1.comparison.statement}`);
+check('C3', report.c3.statement, report.c3.confirmed);
 console.log(
-  `     ${report.h2.unspecialised}: ${(report.h2.generalistAcc * 100).toFixed(1)}% -> ${(report.h2.routedAcc * 100).toFixed(1)}%`
-);
-line('H3', report.h3.statement, report.h3.held);
-console.log(
-  `     cleared accuracy bar: ${report.h3.clearedAccuracy}, failed calibration bar: ${report.h3.failedCalibration}`
+  `     cleared accuracy bar: ${report.c3.clearedAccuracy}, failed calibration bar: ${report.c3.failedCalibration}`
 );
 
-function line(id: string, statement: string, held: boolean) {
-  console.log(`\n  [${held ? 'HELD' : 'NOT HELD'}] ${id}: ${statement}`);
+console.log('\ndispatch invariant (verified, not a finding):');
+console.log(`  [${report.invariant.identical ? 'VERIFIED' : 'BROKEN'}] ${report.invariant.statement}`);
+console.log(
+  `     ${report.invariant.unspecialised}: ${(report.invariant.generalistAcc * 100).toFixed(1)}% and ${(report.invariant.routedAcc * 100).toFixed(1)}% are identical by construction`
+);
+
+function check(id: string, statement: string, confirmed: boolean) {
+  console.log(`\n  [${confirmed ? 'CONFIRMED' : 'NOT CONFIRMED'}] ${id}: ${statement}`);
 }
