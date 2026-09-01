@@ -1,0 +1,23 @@
+name: test
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  study:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+      # the four tool deps install from git tags and build via their prepare
+      # scripts; --foreground-scripts surfaces any build failure
+      - run: npm install --foreground-scripts
+      - run: npm test
+      - run: npm run typecheck
+      - name: the study runs and reports
+        run: npm run study

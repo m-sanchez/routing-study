@@ -1,0 +1,39 @@
+{
+  "name": "routing-study",
+  "version": "1.0.0",
+  "description": "A reproducible specialist-vs-generalist routing study, built on the toolkit: careful-router routes, frozen-eval holds the bars, calibrated checks the confidence, ab-significance decides if the win is real.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "study": "node study/report.ts",
+    "test": "node --test \"test/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/m-sanchez/routing-study.git"
+  },
+  "author": "Miguel Sanchez <contact@miguelsanchez.co.uk>",
+  "license": "MIT",
+  "keywords": [
+    "model-routing",
+    "evaluation",
+    "calibration",
+    "significance",
+    "reproducible",
+    "machine-learning"
+  ],
+  "engines": {
+    "node": ">=22.18"
+  },
+  "dependencies": {
+    "ab-significance": "github:m-sanchez/ab-significance#v1.0.0",
+    "calibrated": "github:m-sanchez/calibrated#v1.0.0",
+    "careful-router": "github:m-sanchez/careful-router#v2.0.0",
+    "frozen-eval": "github:m-sanchez/frozen-eval#v2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "typescript": "^5.9.3"
+  }
+}
