@@ -5,6 +5,8 @@
 ![Reproducible](https://img.shields.io/badge/seeded-reproducible-2F6F44)
 ![License](https://img.shields.io/badge/license-MIT-6E6E6E)
 
+> **In plain English:** a full worked example that plugs several of these tools together to show why you must judge an AI system on whether its confidence is honest, not just whether it is accurate.
+
 A reproducible specialist-vs-generalist routing study, built by composing
 the toolkit: [careful-router](https://github.com/m-sanchez/careful-router)
 routes, [frozen-eval](https://github.com/m-sanchez/frozen-eval) holds the
