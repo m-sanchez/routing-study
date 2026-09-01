@@ -80,20 +80,70 @@ than a claim that the trade was unknown.
 - **ab-significance** compares routed against generalist on the
   common-valid subset, so H1 is a tested claim, not an eyeballed delta.
 
-The four are real dependencies (pinned git tags), so this repo is also a
-working proof that the tools install and compose.
+The four are real dependencies resolved from the npm registry with integrity
+hashes, so this repo is also a working proof that the published tarballs
+install and compose - not just that the source trees do.
+
+The audit primitives are used rather than cited: the corpus is verified
+against the manifest it was frozen under before anything is scored, the
+calibration number is produced by frozen-eval's corpus judge so the bar it
+gates lives *inside* the freeze, per-item confidence is recorded so that
+number is recomputable from the record alone, and the three runs are written
+to a hash-chained ledger which the study then replays - recomputing each
+aggregate from that entry's own scores, not merely walking the chain.
+
+## The arms that are supposed to fail
+
+A study whose checks pass on every world it is handed is not measuring
+anything. Three negative controls plant a defect and assert the check that
+should catch it does (`npm run arms`):
+
+| Arm | World | What the toolkit does |
+| :-- | :-- | :-- |
+| A: capability over-declaration | one specialist declares every domain and is priced cheapest, so the router sends everything to a model good at one lane | routed accuracy collapses to 45.2%; ab-significance reports **A better** - the misroute is caught |
+| B: marginal specialists | specialists at 0.82 against a generalist at 0.80: a real but tiny edge | **no separable difference** - the study can decline to call a win |
+| C: regression behind an improving aggregate | the same over-declaration, merely *tied* on price | **B better** (72.3% -> 76.9%) while the ledger lane is quietly worse than the honest registry gives |
+
+Arm C is the one worth reading twice, and it was not designed - it fell out
+of getting arm A wrong first. Nothing in it is broken: the router obeys its
+policy, the eval computes correctly, and routing really does beat the
+baseline. A lane is still worse than it should be, and no number this study
+would otherwise print says so. Catching it needs a comparison the study does
+not normally run: routed-with-the-lie against routed-without-it.
+
+## How much data this needed
+
+`npm run power` sweeps the same planted world over ten seeds per size and
+reports how often ab-significance actually returns "B better":
+
+| examples | 20 | 40 | 60 | 100 | 160 | 240 | 400 | 600 | 1200 |
+| :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- |
+| detected | 0/10 | 0/10 | 0/10 | 0/10 | 0/10 | 5/10 | 10/10 | 10/10 | 10/10 |
+
+Nothing is detected at or below 160 examples, 240 is a coin flip, and
+detection is reliable from 400 up. The headline run sits at 1,200, so the
+result rests on a detectable effect rather than on sample size alone. Note
+the mean effect is *larger* at the smallest sizes (+9pp, +12pp) and still
+invisible - which is the whole reason the test is run instead of reading the
+difference off the table.
 
 ## Run
 
 ```bash
-npm install       # pulls the four tools from their git tags and builds them
+npm install       # the four tools, from the npm registry
 npm run study     # the report above
+npm run arms      # the three failure arms
+npm run power     # the detection curve
 npm test
 npm run typecheck
 ```
 
-Node 22.18+. Synthetic, seeded, reproducible: the same seed gives the same
-numbers, pinned by a test.
+Node 22.18+. Synthetic, seeded, reproducible - and the numbers above are
+pinned exactly by `test/pinned.test.ts`, not asserted as inequalities: the
+manifest hash, every accuracy and ECE, the per-domain table and the McNemar
+p-value. Change the world, the bars, the router's policy or the calibration
+binning and the build breaks rather than quietly restating the study on
+different ground.
 
 ## Reading order
 

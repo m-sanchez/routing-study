@@ -21,6 +21,10 @@ export interface Model {
   /** domains this model is competent in (its capability record) */
   capabilities: Domain[];
   answer: (example: Example) => Answer;
+  /** explicit price in micro-USD per MTok, overriding the default tier.
+   * Only the failure arms set this: the main study derives price from the
+   * capability record so nothing is hand-placed on the scale. */
+  price?: { inMicros: number; outMicros: number };
 }
 
 /** Draw a deterministic coin for (model, example) so a given model always

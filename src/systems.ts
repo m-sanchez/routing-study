@@ -34,8 +34,8 @@ export function registry(models: Model[]): ModelRecord[] {
       provider: isGeneralist ? 'generalist' : 'specialist',
       contextWindow: 100_000,
       maxOutput: 4_096,
-      inUsdMicrosPerMTok: (isGeneralist ? 5 : 1) * M,
-      outUsdMicrosPerMTok: (isGeneralist ? 25 : 5) * M,
+      inUsdMicrosPerMTok: m.price ? m.price.inMicros : (isGeneralist ? 5 : 1) * M,
+      outUsdMicrosPerMTok: m.price ? m.price.outMicros : (isGeneralist ? 25 : 5) * M,
       capabilities: m.capabilities,
       boundary: 'external' as const
     };

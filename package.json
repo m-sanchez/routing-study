@@ -7,7 +7,9 @@
   "scripts": {
     "study": "node study/report.ts",
     "test": "node --test \"test/*.test.ts\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "power": "node study/power.ts",
+    "arms": "node study/arms-report.ts"
   },
   "repository": {
     "type": "git",
@@ -27,10 +29,10 @@
     "node": ">=22.18"
   },
   "dependencies": {
-    "@m-sanchez/ab-significance": "github:m-sanchez/ab-significance#v1.0.2",
-    "@m-sanchez/calibrated": "github:m-sanchez/calibrated#v1.0.1",
-    "@m-sanchez/careful-router": "github:m-sanchez/careful-router#v2.0.1",
-    "@m-sanchez/frozen-eval": "github:m-sanchez/frozen-eval#v2.0.1"
+    "@m-sanchez/ab-significance": "^2.0.0",
+    "@m-sanchez/calibrated": "^2.0.0",
+    "@m-sanchez/careful-router": "^3.0.0",
+    "@m-sanchez/frozen-eval": "^3.0.0"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
