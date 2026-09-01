@@ -7,8 +7,8 @@
  * decision record is what routes every example - nothing here reaches past
  * it. */
 
-import { route } from 'careful-router';
-import type { ModelRecord } from 'careful-router';
+import { route } from '@m-sanchez/careful-router';
+import type { ModelRecord } from '@m-sanchez/careful-router';
 import type { Answer, Model } from './models.ts';
 import type { Example } from './world.ts';
 

@@ -8,11 +8,11 @@
  * methodology surfacing what an accuracy number hides, on a world where we
  * know the ground truth; it is not evidence about real models. */
 
-import { compareModels } from 'ab-significance';
-import type { Outcome } from 'ab-significance';
-import { calibrationError } from 'calibrated';
-import { evaluateBars, freeze, runEval } from 'frozen-eval';
-import type { Bar, Corpus } from 'frozen-eval';
+import { compareModels } from '@m-sanchez/ab-significance';
+import type { Outcome } from '@m-sanchez/ab-significance';
+import { calibrationError } from '@m-sanchez/calibrated';
+import { evaluateBars, freeze, runEval } from '@m-sanchez/frozen-eval';
+import type { Bar, Corpus } from '@m-sanchez/frozen-eval';
 import { generalist, specialist } from './models.ts';
 import type { Model } from './models.ts';
 import { runGeneralist, runOracle, runRouted } from './systems.ts';
