@@ -127,6 +127,43 @@ the mean effect is *larger* at the smallest sizes (+9pp, +12pp) and still
 invisible - which is the whole reason the test is run instead of reading the
 difference off the table.
 
+## The real-model arm
+
+Everything above is a designed world. `src/real.ts` asks the same question
+of a real model: on questions with a checkable answer, does routing each one
+to a domain-primed instance of one cheap model beat sending everything to a
+generically-primed instance of the same model - and does the toolkit report
+that honestly?
+
+- Four domains, generated from a seed with a checkable answer each: ledger
+  sums and counts, directed-graph reachability, days between dated events,
+  and whether two noisy records are the same person. `careful-router` routes
+  every question over a capability registry in which each "specialist" is
+  the same model behind a different priming - the honest real-world shape of
+  a specialist when you only have one model.
+- The corpus is frozen and verified, ECE comes from `frozen-eval`'s corpus
+  judge over the model's own stated confidence, both runs go into a
+  hash-chained ledger the arm replays, and `ab-significance` gives the
+  verdict. Same instruments as the synthetic study, real answers.
+- **Every model answer is recorded.** Requests are keyed by a hash of
+  (model, priming, question) and appended to `study/transcripts/real.jsonl`;
+  a replay run answers from the transcript and opens no socket. CI only
+  replays. Live mode - `npm run real -- --live` - needs a credential, spends
+  money (well under a dollar at `claude-haiku-4-5` pricing for the default
+  400 questions), and is refused under CI.
+
+**Not yet recorded.** The arm is built and its machinery is tested without
+network (`test/real.test.ts`, 6 tests against an injected fake model), but no
+transcript has been committed, so there is no result table here. Recording
+it is a deliberate act with a real model and a real bill. Once recorded, the
+replay test holds every replay to the pinned summary in
+`study/transcripts/real.summary.json`, and the table goes here.
+
+Read the result the way the detection curve above says to: 400 questions is
+the floor at which this harness reliably separates a planted +5.7pp, so a
+real effect smaller than that can honestly come back "no separable
+difference". That is the instrument working, not failing.
+
 ## Run
 
 ```bash
@@ -134,6 +171,7 @@ npm install       # the four tools, from the npm registry
 npm run study     # the report above
 npm run arms      # the three failure arms
 npm run power     # the detection curve
+npm run real      # replay the recorded real-model arm (--live to record)
 npm test
 npm run typecheck
 ```

@@ -9,7 +9,8 @@
     "test": "node --test \"test/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "power": "node study/power.ts",
-    "arms": "node study/arms-report.ts"
+    "arms": "node study/arms-report.ts",
+    "real": "node study/real-report.ts"
   },
   "repository": {
     "type": "git",
@@ -35,6 +36,7 @@
     "@m-sanchez/frozen-eval": "^3.0.0"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.123.0",
     "@types/node": "^26.4.0",
     "typescript": "^5.9.3"
   }
