@@ -152,17 +152,74 @@ that honestly?
   money (well under a dollar at `claude-haiku-4-5` pricing for the default
   400 questions), and is refused under CI.
 
-**Not yet recorded.** The arm is built and its machinery is tested without
-network (`test/real.test.ts`, 7 tests against an injected fake model), but no
-transcript has been committed, so there is no result table here. Recording
-it is a deliberate act with a real model and a real bill. Once recorded, the
-replay test holds every replay to the pinned summary in
-`study/transcripts/real.summary.json`, and the table goes here.
+**Recorded 2026-09-02. Routing lost.** One recording, 744 live calls,
+replayed by every CI run since.
 
-Read the result the way the detection curve above says to: 400 questions is
-the floor at which this harness reliably separates a planted +5.7pp, so a
-real effect smaller than that can honestly come back "no separable
-difference". That is the instrument working, not failing.
+| system | accuracy | ECE | accuracy bar | calibration bar |
+| :-- | :-- | :-- | :-- | :-- |
+| generalist priming | 82.8% | 0.142 | PASS | FAIL |
+| careful-router routed priming | 67.8% | 0.253 | FAIL | FAIL |
+
+Per-domain accuracy, generalist to routed:
+
+| domain | generalist | routed | change |
+| :-- | :-- | :-- | :-- |
+| ledger | 100.0% | 77.0% | -23.0pp |
+| network | 74.0% | 63.0% | -11.0pp |
+| timeline | 74.0% | 32.0% | -42.0pp |
+| identity | 83.0% | 99.0% | +16.0pp |
+
+`ab-significance`: on the 400 examples both systems scored, A 82.8%, B 67.8%,
+McNemar p=0.0000 as printed and 1.7e-9 in the pinned summary, B-A -15.0pp
+[-19.8, -10.3]. A is better, beyond noise and beyond the declared bar.
+`frozen-eval`: manifest 476d2916b67e, ledger 2 entries, chain intact,
+arithmetic replayed.
+
+```
+provenance:
+  model            claude-haiku-4-5
+  recorded at      2026-09-02T15:17:28.050Z
+  seed             1
+  per domain       100 (n = 400)
+  live calls       744
+  tokens in / out  101838 / 29823
+  transcript       sha256 762f627649e9
+  mode             replay (no network)
+```
+
+**What it says.** For this model on these questions, telling an instance it
+is a domain specialist made it worse on three domains out of four, and worse
+overall by 15 points. `careful-router` did exactly what its records told it
+to: for each question it picked a model that declared the needed capability
+at a lower price. The routing was correct; the premise underneath it - that
+a domain-primed instance is at least as good on its own domain - was false.
+The sharpest case is ledger, where the generalist was already perfect and
+"add and count carefully, one row at a time" cost it 23 points. Only
+identity, the most mechanical task, gained from priming.
+
+Calibration moved the same way: the routed system is both less accurate and
+less honest about it, ECE 0.142 to 0.253, and neither system clears the
+calibration bar. An accuracy-only eval that assumed routing helps would have
+shipped a 15-point regression with more confident wrong answers attached.
+The instruments that caught a planted calibration failure in the designed
+world caught a real accuracy failure here, and named which model was better
+rather than the one the design expected.
+
+**Two things to hold against these numbers.** The question generator repeats
+itself in one domain: 400 questions are asked, 372 of them distinct, because
+28 identity prompts are duplicates of others in the same run. Duplicates
+always carry the same answer, so scoring is consistent, but those items are
+perfectly correlated with their twins and McNemar assumes they are not. At
+p=1.7e-9 on a 15-point effect that cannot flip the verdict, and it is why
+the transcript has 744 entries rather than 800: a repeated prompt is asked
+once. And 400 questions is the floor at which this harness reliably
+separates a planted +5.7pp, so a smaller real effect could honestly have
+come back "no separable difference". This one was nowhere near the floor.
+
+This is one model, one prompt set, one day. It says whether routing to
+domain-primed instances helped this model on these questions, and whether
+the toolkit reported that honestly. It is not evidence about routing in
+general, and a different model or a different priming could land anywhere.
 
 ### How to read the numbers
 

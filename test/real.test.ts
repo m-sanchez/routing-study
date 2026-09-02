@@ -137,6 +137,46 @@ test('the summary pins the transcript bytes', async () => {
   assert.notEqual(again.transcriptSha256, summary.transcriptSha256, 'one extra byte changes the pinned hash');
 });
 
+test('the question set repeats itself in one domain, and the README says by how much', () => {
+  // the identity generator draws from a small space, so a run of 400 asks
+  // fewer distinct questions than it counts. The README states the gap; if
+  // the generator changes, the stated numbers have to change with it.
+  const qs = generateQuestions(100, 1);
+  assert.equal(qs.length, 400, 'the recorded run asked 400 questions');
+  assert.equal(new Set(qs.map((q) => q.prompt)).size, 372, 'of which this many are distinct');
+  const identity = qs.filter((q) => q.domain === 'identity').map((q) => q.prompt);
+  assert.equal(identity.length - new Set(identity).size, 28, 'every repeat is an identity question');
+  for (const d of ['ledger', 'network', 'timeline'] as const) {
+    const ps = qs.filter((q) => q.domain === d).map((q) => q.prompt);
+    assert.equal(new Set(ps).size, ps.length, `${d} asks no question twice`);
+  }
+  // a repeat is only harmless because it carries the same answer
+  const answers = new Map<string, string>();
+  for (const q of qs) {
+    const seen = answers.get(q.prompt);
+    if (seen !== undefined) assert.equal(q.answer, seen, 'a repeated question has one answer');
+    answers.set(q.prompt, q.answer);
+  }
+});
+
+test('the recorded provenance is the transcript it came from', { skip: !existsSync(SUMMARY_PATH) && 'no recorded run yet: npm run real -- --live' }, () => {
+  // the README prints live calls and token spend out of the pinned summary;
+  // both are recomputable from the committed transcript, so neither can be
+  // typed in by hand.
+  const pinned = JSON.parse(readFileSync(SUMMARY_PATH, 'utf8')) as RealSummary;
+  const entries = readFileSync(TRANSCRIPT_PATH, 'utf8')
+    .split(/\r?\n/)
+    .filter((line) => line.length > 0)
+    .map((line) => JSON.parse(line) as TranscriptEntry);
+  assert.equal(entries.length, pinned.liveCalls, 'the pin claims a different number of calls than the transcript holds');
+  const spent = entries.reduce(
+    (acc, e) => ({ input: acc.input + (e.usage?.input ?? 0), output: acc.output + (e.usage?.output ?? 0) }),
+    { input: 0, output: 0 }
+  );
+  assert.deepEqual(spent, pinned.usage, 'the pinned token spend is not what the transcript adds up to');
+  assert.equal(new Set(entries.map((e) => e.key)).size, entries.length, 'a key was recorded twice');
+});
+
 test('a recorded run replays to exactly its pinned summary', { skip: !existsSync(SUMMARY_PATH) && 'no recorded run yet: npm run real -- --live' }, async () => {
   const pinned = JSON.parse(readFileSync(SUMMARY_PATH, 'utf8')) as RealSummary;
   const transcript = loadTranscript(TRANSCRIPT_PATH);

@@ -53,7 +53,10 @@ with `npm run study`, `npm run arms` and `npm run power`.
 | A replay run never falls back to a live call: an uncovered question is an error | `test/real.test.ts::replay never guesses: a question the transcript does not cover is an error` |
 | Live mode is refused under CI, before any credential is consulted | `test/real.test.ts::live mode is refused under CI before any credential is looked at` |
 | The pinned summary carries the sha256 of the transcript file, the live-call count and the token usage, and one changed byte changes the hash | `test/real.test.ts::the summary pins the transcript bytes` |
-| A recorded run replays to exactly its pinned summary (manifest hash, every accuracy/ECE, per-domain table, verdict, p-value), the committed transcript hashes to the pinned sha256, and the pin records at least one live call | `test/real.test.ts::a recorded run replays to exactly its pinned summary` - **skipped with a stated reason until a transcript is committed** |
+| A recorded run replays to exactly its pinned summary (manifest hash, every accuracy/ECE, per-domain table, verdict, p-value), the committed transcript hashes to the pinned sha256, and the pin records at least one live call | `test/real.test.ts::a recorded run replays to exactly its pinned summary` |
+| Every number the README prints for the recorded arm - the two accuracies and ECEs, the per-domain table, the verdict and the p-value - is the one a replay of the committed transcript produces | `test/real.test.ts::a recorded run replays to exactly its pinned summary` |
+| The live-call count and token spend in the provenance block add up from the committed transcript, and no key was recorded twice | `test/real.test.ts::the recorded provenance is the transcript it came from` |
+| The recorded run asked 400 questions of which 372 are distinct, every repeat is an identity question, and a repeated question carries one answer | `test/real.test.ts::the question set repeats itself in one domain, and the README says by how much` |
 
 ## Reproducibility
 
@@ -65,10 +68,10 @@ with `npm run study`, `npm run arms` and `npm run power`.
 
 ## Claims deliberately NOT enforced by a test
 
-- **Any number from the real-model arm.** None exist yet: the README says
-  "not yet recorded" and prints no table. When a transcript is committed,
-  the replay test above becomes the enforcing test for every number printed,
-  and for the transcript bytes those numbers came from.
+- **What the recorded arm means beyond its own run.** The tables are
+  enforced; the reading of them is not. "One model, one prompt set, one day"
+  and the account of why priming hurt are judgement, and the README says so
+  rather than dressing them as results.
 
 - **The detection curve** (`npm run power`: 0/10 at ≤160 examples, 5/10 at 240,
   10/10 from 400). It is a 10-seed × 9-size sweep taking far longer than the

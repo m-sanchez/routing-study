@@ -1,0 +1,39 @@
+{
+  "model": "claude-haiku-4-5",
+  "seed": 1,
+  "perDomain": 100,
+  "recordedAt": "2026-09-02T15:17:28.050Z",
+  "manifestHash": "476d2916b67e58f8affe81823578db641a01c72aaf70b9590a0bd8a60e364ed9",
+  "transcriptSha256": "762f627649e915d05fec6f1939973409cc5e77a235532d0d2d50699c93a6b4ff",
+  "liveCalls": 744,
+  "usage": {
+    "input": 101838,
+    "output": 29823
+  },
+  "systems": [
+    {
+      "label": "generalist priming",
+      "accuracy": 0.8275,
+      "ece": 0.1419999999999991,
+      "perDomain": {
+        "ledger": 1,
+        "network": 0.74,
+        "timeline": 0.74,
+        "identity": 0.83
+      }
+    },
+    {
+      "label": "careful-router routed priming",
+      "accuracy": 0.6775,
+      "ece": 0.2533499999999993,
+      "perDomain": {
+        "ledger": 0.77,
+        "network": 0.63,
+        "timeline": 0.32,
+        "identity": 0.99
+      }
+    }
+  ],
+  "verdict": "A better",
+  "mcnemarP": 1.709865174269366e-9
+}
