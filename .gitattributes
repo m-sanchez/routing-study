@@ -1,0 +1,6 @@
+# The recorded transcript is pinned by the sha256 of its bytes, and the
+# summary carries that hash. Any line-ending conversion on checkout would
+# change those bytes and make an honest clone look tampered with, so these
+# two files are never converted.
+study/transcripts/real.jsonl -text
+study/transcripts/real.summary.json -text
