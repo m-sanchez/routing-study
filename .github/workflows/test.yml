@@ -14,8 +14,9 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node }}
-      # the four tool deps install from git tags and build via their prepare
-      # scripts; --foreground-scripts surfaces any build failure
+      # the four tool deps resolve from the npm registry, with integrity
+      # checked against the lockfile; --foreground-scripts surfaces any
+      # install-script failure
       - run: npm install --foreground-scripts
       - run: npm test
       - run: npm run typecheck

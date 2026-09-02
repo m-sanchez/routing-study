@@ -10,7 +10,10 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   PRIMING,
   REAL_MODEL,
@@ -24,9 +27,10 @@ import {
   registry,
   replayAsker,
   runReal,
-  score
+  score,
+  summarise
 } from '../src/real.ts';
-import type { Recorder, RealSummary } from '../src/real.ts';
+import type { Recorder, RealSummary, TranscriptEntry } from '../src/real.ts';
 import { validateRegistry } from '@m-sanchez/careful-router';
 
 /** A stand-in model: right on its own domain most of the time, worse off it,
@@ -112,10 +116,33 @@ test('live mode is refused under CI before any credential is looked at', async (
   }
 });
 
+test('the summary pins the transcript bytes', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'routing-study-'));
+  const path = join(dir, 'real.jsonl');
+  const at = '2026-01-01T00:00:00.000Z';
+  const entries: TranscriptEntry[] = [
+    { key: 'k1', model: REAL_MODEL, system: PRIMING.generalist, prompt: 'p1', text: '1\nCONFIDENCE: 0.9', recordedAt: at, usage: { input: 10, output: 4 } },
+    { key: 'k2', model: REAL_MODEL, system: PRIMING.ledger, prompt: 'p2', text: '2\nCONFIDENCE: 0.8', recordedAt: at, usage: { input: 15, output: 6 } },
+    { key: 'k3', model: REAL_MODEL, system: PRIMING.network, prompt: 'p3', text: 'yes\nCONFIDENCE: 0.7', recordedAt: at }
+  ];
+  writeFileSync(path, entries.map((e) => JSON.stringify(e)).join('\n') + '\n');
+  const report = await runReal({ perDomain: 20, recorder: fakeRecorder(), mode: 'replay' });
+  const summary = summarise(report, at, path);
+  const sha = createHash('sha256').update(readFileSync(path)).digest('hex');
+  assert.equal(summary.transcriptSha256, sha, 'the summary carries the sha256 of the transcript bytes');
+  assert.equal(summary.liveCalls, report.liveCalls, 'the summary carries the live-call count of the run it pins');
+  assert.deepEqual(summary.usage, { input: 25, output: 10 }, 'usage is summed over every entry; an entry without usage counts as zero');
+  appendFileSync(path, '\n');
+  const again = summarise(report, at, path);
+  assert.notEqual(again.transcriptSha256, summary.transcriptSha256, 'one extra byte changes the pinned hash');
+});
+
 test('a recorded run replays to exactly its pinned summary', { skip: !existsSync(SUMMARY_PATH) && 'no recorded run yet: npm run real -- --live' }, async () => {
   const pinned = JSON.parse(readFileSync(SUMMARY_PATH, 'utf8')) as RealSummary;
   const transcript = loadTranscript(TRANSCRIPT_PATH);
   assert.ok(transcript.size > 0, 'a summary without a transcript cannot be replayed');
+  assert.equal(createHash('sha256').update(readFileSync(TRANSCRIPT_PATH)).digest('hex'), pinned.transcriptSha256, 'the transcript was edited after it was pinned');
+  assert.equal(pinned.liveCalls > 0, true, 'a recording that made no live calls is not a recording');
   const report = await runReal({ seed: pinned.seed, perDomain: pinned.perDomain, recorder: replayAsker(transcript), mode: 'replay' });
   assert.equal(report.model, pinned.model);
   assert.equal(report.manifestHash, pinned.manifestHash, 'the questions moved under the recording');

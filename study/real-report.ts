@@ -8,7 +8,7 @@
  * profile) and spends money - at haiku pricing a full 400-question run is
  * well under a dollar. It is refused under CI. */
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import {
   REAL_MODEL,
   SUMMARY_PATH,
@@ -20,6 +20,7 @@ import {
   summarise,
   writeSummary
 } from '../src/real.ts';
+import type { RealSummary } from '../src/real.ts';
 
 const args = process.argv.slice(2);
 const flag = (name: string, fallback: number) => {
@@ -68,14 +69,30 @@ console.log(
     `chain ${report.ledger.intact ? 'intact' : 'BROKEN'}, arithmetic ${report.ledger.replayed ? 'replayed' : 'not replayed'}`
 );
 
+const pinned = existsSync(SUMMARY_PATH) ? (JSON.parse(readFileSync(SUMMARY_PATH, 'utf8')) as RealSummary) : undefined;
+const summary = summarise(report, live ? new Date().toISOString() : (pinned?.recordedAt ?? 'not pinned'), TRANSCRIPT_PATH);
+// a replay made no calls; the count that matters is the one the recording made
+const liveCalls = !live && pinned ? pinned.liveCalls : summary.liveCalls;
+
+console.log('\nprovenance:');
+console.log(`  model            ${summary.model}`);
+console.log(`  recorded at      ${summary.recordedAt}`);
+console.log(`  seed             ${summary.seed}`);
+console.log(`  per domain       ${summary.perDomain} (n = ${report.n})`);
+console.log(`  live calls       ${liveCalls}`);
+console.log(`  tokens in / out  ${summary.usage.input} / ${summary.usage.output}`);
+console.log(`  transcript       sha256 ${summary.transcriptSha256.slice(0, 12)}`);
+console.log(`  mode             ${report.mode}${report.mode === 'replay' ? ' (no network)' : ''}`);
+
 console.log(
   '\nThis is one model, one prompt set, one day. It says whether routing to\n' +
     'domain-primed instances helped THIS model on THESE questions, and whether\n' +
     'the toolkit reported that honestly. It is not evidence about routing in general.'
 );
 
-if (live) {
-  const summary = summarise(report, new Date().toISOString());
+if (live && report.liveCalls === 0 && pinned) {
+  console.log(`\nthe transcript already covered every question; nothing was recorded and the pin at ${SUMMARY_PATH} stands.`);
+} else if (live) {
   writeSummary(summary);
   console.log(`\nsummary pinned at ${SUMMARY_PATH}${existsSync(SUMMARY_PATH) ? '' : ' (write failed)'}`);
   console.log('commit study/transcripts/ so CI can replay this run without a credential.');

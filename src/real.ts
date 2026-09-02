@@ -466,25 +466,39 @@ export async function runReal(opts: {
 }
 
 /** The numbers a recorded run produced, pinned beside the transcript so a
- * replay can be held to them. */
+ * replay can be held to them. The pin also carries the sha256 of the
+ * transcript bytes, how many answers came from a socket, and the tokens the
+ * recording spent: a transcript edited after the pin fails the replay test
+ * before any number is compared. */
 export interface RealSummary {
   model: string;
   seed: number;
   perDomain: number;
   recordedAt: string;
   manifestHash: string;
+  transcriptSha256: string;
+  liveCalls: number;
+  usage: { input: number; output: number };
   systems: Array<{ label: string; accuracy: number; ece: number; perDomain: Record<string, number> }>;
   verdict: string;
   mcnemarP: number;
 }
 
-export function summarise(report: RealReport, recordedAt: string): RealSummary {
+export function summarise(report: RealReport, recordedAt: string, transcriptPath = TRANSCRIPT_PATH): RealSummary {
+  const usage = { input: 0, output: 0 };
+  for (const e of loadTranscript(transcriptPath).values()) {
+    usage.input += e.usage?.input ?? 0;
+    usage.output += e.usage?.output ?? 0;
+  }
   return {
     model: report.model,
     seed: report.seed,
     perDomain: report.perDomain,
     recordedAt,
     manifestHash: report.manifestHash,
+    transcriptSha256: createHash('sha256').update(readFileSync(transcriptPath)).digest('hex'),
+    liveCalls: report.liveCalls,
+    usage,
     systems: report.systems.map((s) => ({ label: s.label, accuracy: s.accuracy, ece: s.ece, perDomain: s.perDomain })),
     verdict: report.comparison.verdict,
     mcnemarP: report.comparison.mcnemar.p

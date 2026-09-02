@@ -153,7 +153,7 @@ that honestly?
   400 questions), and is refused under CI.
 
 **Not yet recorded.** The arm is built and its machinery is tested without
-network (`test/real.test.ts`, 6 tests against an injected fake model), but no
+network (`test/real.test.ts`, 7 tests against an injected fake model), but no
 transcript has been committed, so there is no result table here. Recording
 it is a deliberate act with a real model and a real bill. Once recorded, the
 replay test holds every replay to the pinned summary in
@@ -163,6 +163,20 @@ Read the result the way the detection curve above says to: 400 questions is
 the floor at which this harness reliably separates a planted +5.7pp, so a
 real effect smaller than that can honestly come back "no separable
 difference". That is the instrument working, not failing.
+
+### How to read the numbers
+
+The arm was registered in advance by commit order: the harness, the question
+generators, the bars and this paragraph were all committed before any
+transcript existed, so nothing about what counts as a pass was chosen after
+seeing an answer. It is recorded once. On every push, CI replays the
+committed transcript with no network and holds the replay to the pinned
+summary in `study/transcripts/real.summary.json`, which carries every
+reported number together with the sha256 of the transcript bytes, the number
+of live calls the recording made and the tokens it spent; an edited
+transcript fails the build before any number is compared. If the arm is ever
+recorded again, the new run is added as a dated row with the reason for
+recording it, and the first row stays where it is.
 
 ## Run
 
