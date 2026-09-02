@@ -169,12 +169,12 @@ difference". That is the instrument working, not failing.
 The arm was registered in advance by commit order: the harness, the question
 generators, the bars and this paragraph were all committed before any
 transcript existed, so nothing about what counts as a pass was chosen after
-seeing an answer. It is recorded once. On every push, CI replays the
-committed transcript with no network and holds the replay to the pinned
-summary in `study/transcripts/real.summary.json`, which carries every
-reported number together with the sha256 of the transcript bytes, the number
-of live calls the recording made and the tokens it spent; an edited
-transcript fails the build before any number is compared. If the arm is ever
+seeing an answer. The protocol is one recording. Once a transcript is
+committed, CI replays it on every push with no network and holds the replay
+to the pinned summary in `study/transcripts/real.summary.json`, which
+carries every reported number together with the sha256 of the transcript
+bytes, the number of live calls the recording made and the tokens it spent;
+an edited transcript fails the build before any number is compared. If the arm is ever
 recorded again, the new run is added as a dated row with the reason for
 recording it, and the first row stays where it is.
 
