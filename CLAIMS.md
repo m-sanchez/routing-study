@@ -6,7 +6,7 @@ test is a screenshot; if a row here has no test, the sentence should come out
 of the README rather than stay on trust.
 
 Run them with `npm test`. The reported tables are additionally reproducible
-with `npm run study`, `npm run arms` and `npm run power`.
+with `npm run study`, `npm run arms`, `npm run power` and `npm run rescore`.
 
 ## The headline table
 
@@ -58,6 +58,33 @@ with `npm run study`, `npm run arms` and `npm run power`.
 | The live-call count and token spend in the provenance block add up from the committed transcript, and no key was recorded twice | `test/real.test.ts::the recorded provenance is the transcript it came from` |
 | The recorded run asked 400 questions of which 372 are distinct, every repeat is an identity question, and a repeated question carries one answer | `test/real.test.ts::the question set repeats itself in one domain, and the README says by how much` |
 
+## The post-hoc re-score of the real-model arm
+
+These claims come from a scorer chosen after the replies had been read. The
+tests pin what it does and what it prints; they do not make it a registered
+result.
+
+| Claim | Enforced by |
+| :-- | :-- |
+| `score()` still behaves as recorded: the strict column of the re-score is the recorded arm, 331 and 271 of 400, the per-domain table, p and verdict | `test/rescore.test.ts::the strict column is the recorded arm, number for number` |
+| Rules 1 and 3: nothing after `CONFIDENCE:` is read; numeric answers are the last number, commas removed, a date hyphen never read as a minus sign, compared numerically | `test/rescore.test.ts::numbers: the last one stated, commas removed, and a date hyphen is not a minus sign` |
+| Rule 2: a reply with no `CONFIDENCE:` line is wrong, even when its last number is the answer (routed `timeline-52`) | `test/rescore.test.ts::a reply cut off before its CONFIDENCE line is wrong, even when its last number is the answer` |
+| Rule 4: yes/no is the last standalone word; "nothing" or "know" is not a "no" | `test/rescore.test.ts::yes/no: only the standalone words count` |
+| Rule 5: any other answer must be an exact final token, never a substring | `test/rescore.test.ts::any other answer is an exact final token, never a substring` |
+| A reply that works first and answers last is wrong under the strict scorer and right on its final answer, including a "no" inside the working that is not the answer | `test/rescore.test.ts::a reply that works first and answers last is wrong on its first token and right on its final answer` |
+| The 23 routed ledger replies the strict scorer marks wrong all opened with working and end on the right answer | `test/rescore.test.ts::every routed ledger reply the strict scorer marks wrong opened with working and ends on the right answer` |
+| "No." is wrong under the strict scorer and right on its final answer; no recorded reply opens with "Yes.", and 21 open with "No." | `test/rescore.test.ts::"No." keeps its full stop under the strict scorer and loses it under the final-answer scorer`; `test/rescore.test.ts::no recorded reply opens with "Yes."; every full-stop opening is "No."` |
+| The 27 replies with no `CONFIDENCE:` line all stopped at the 256-token limit; 5 more reached the limit inside their `CONFIDENCE:` line after stating an answer | `test/rescore.test.ts::every reply without a CONFIDENCE line stopped at the 256-token limit` |
+| A finished reply with the wrong answer is wrong under both scorers | `test/rescore.test.ts::a finished reply with the wrong answer is wrong under both scorers` |
+| Final-answer accuracy 352/400 (88.0%) and 364/400 (91.0%), and the per-domain table (100/100, 86/90, 74/74, 92/100) | `test/rescore.test.ts::the re-score pins every number it prints` |
+| Final-answer McNemar b 22, c 34, p 0.141, B-A +3.0pp [-0.5, 6.8], "no separable difference"; strict b 81, c 21 | same test |
+| Why the strict scorer marked a reply wrong (generalist 9/12/0/0/48, routed 87/6/0/27/9), no strict-right reply wrong on its final answer, 3 truncated replies ending on the right answer | same test |
+| The losing reply on each discordant pair: strict b 53 working, 22 truncated, 6 "No."; strict c 12 "No.", 9 wrong; final b 22 truncated; final c 34 wrong | same test |
+| On final answers the 22 questions only the generalist got right are the same 22 truncated routed replies the strict scorer also gave it | `test/rescore.test.ts::on final answers, the questions only the generalist got right are the truncated routed replies the strict scorer also gave it` |
+| `npm run rescore` prints exactly these numbers | `test/rescore.test.ts::the re-score pins every number it prints` (compares the whole printed report) |
+| Re-scoring leaves the transcript and the pinned summary byte-for-byte unchanged | `test/rescore.test.ts::the recorded transcript and summary are the pinned bytes, before and after a re-score` |
+| The pins bite | verified by mutation: changing the pinned final routed count from 364 to 365, dropping the truncation rule, or keeping the full stop on "No." each turns `test/rescore.test.ts` red |
+
 ## Reproducibility
 
 | Claim | Enforced by |
@@ -68,9 +95,14 @@ with `npm run study`, `npm run arms` and `npm run power`.
 
 ## Claims deliberately NOT enforced by a test
 
+- **That the final-answer rule is the right reading.** It was chosen after
+  the replies had been read. The tests pin what it does and what it prints,
+  not that it is the correct way to score this arm; the README labels it post
+  hoc for that reason.
+
 - **What the recorded arm means beyond its own run.** The tables are
   enforced; the reading of them is not. "One model, one prompt set, one day"
-  and the account of why priming hurt are judgement, and the README says so
+  and the account of why priming hurt under the strict scorer are judgement, and the README says so
   rather than dressing them as results.
 
 - **The detection curve** (`npm run power`: 0/10 at ≤160 examples, 5/10 at 240,

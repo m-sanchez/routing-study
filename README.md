@@ -152,15 +152,20 @@ that honestly?
   money (well under a dollar at `claude-haiku-4-5` pricing for the default
   400 questions), and is refused under CI.
 
-**Recorded 2026-09-02. Routing lost.** One recording, 744 live calls,
-replayed by every CI run since.
+**Recorded 2026-09-02. Under strict first-token scoring, routing lost.** One
+recording, 744 live calls, replayed by every CI run since. That scorer turned
+out to measure the format of a reply as much as its answer; read
+[the re-scoring section](#re-scoring-the-real-model-arm-what-the-strict-scorer-measured)
+before reading these tables as a finding about routing.
+
+Strict first-token scoring, as registered:
 
 | system | accuracy | ECE | accuracy bar | calibration bar |
 | :-- | :-- | :-- | :-- | :-- |
 | generalist priming | 82.8% | 0.142 | PASS | FAIL |
 | careful-router routed priming | 67.8% | 0.253 | FAIL | FAIL |
 
-Per-domain accuracy, generalist to routed:
+Per-domain accuracy under strict first-token scoring, generalist to routed:
 
 | domain | generalist | routed | change |
 | :-- | :-- | :-- | :-- |
@@ -187,30 +192,28 @@ provenance:
   mode             replay (no network)
 ```
 
-**What it says.** For this model on these questions, telling an instance it
-is a domain specialist made it worse on three domains out of four, and worse
-overall by 15 points. `careful-router` did exactly what its records told it
-to: for each question it picked a model that declared the needed capability
-at a lower price. The routing was correct; the premise underneath it - that
-a domain-primed instance is at least as good on its own domain - was false.
-The sharpest case is ledger, where the generalist was already perfect and
-"add and count carefully, one row at a time" cost it 23 points. Only
-identity, the most mechanical task, gained from priming.
+**What the strict scorer says.** For this model on these questions, telling
+an instance it is a domain specialist reduced its accuracy under strict
+first-token scoring on three domains out of four, and by 15 points overall.
+`careful-router` did exactly what its records told it to: for each question
+it picked a model that declared the needed capability at a lower price. The
+sharpest strict-scorer case is ledger, where the generalist was perfect and
+the routed instance, told to "add and count carefully, one row at a time",
+lost 23 points. Those 23 replies show their working first and give the right
+answer at the end, and the strict scorer reads only the first token. On final
+answers ledger is 100 against 100; the re-scoring section has the full
+account. Identity gained from priming under both scorers.
 
-Calibration moved the same way: the routed system is both less accurate and
-less honest about it, ECE 0.142 to 0.253, and neither system clears the
-calibration bar. An accuracy-only eval that assumed routing helps would have
-shipped a 15-point regression with more confident wrong answers attached.
-The instruments that caught a planted calibration failure in the designed
-world caught a real accuracy failure here, and named which model was better
-rather than the one the design expected.
+Calibration was scored against the same strict correctness: ECE 0.142 to
+0.253, and neither system clears the calibration bar. Those ECE figures carry
+the strict scorer's format penalty and are not re-scored here.
 
 **Two things to hold against these numbers.** The question generator repeats
 itself in one domain: 400 questions are asked, 372 of them distinct, because
 28 identity prompts are duplicates of others in the same run. Duplicates
 always carry the same answer, so scoring is consistent, but those items are
 perfectly correlated with their twins and McNemar assumes they are not. At
-p=1.7e-9 on a 15-point effect that cannot flip the verdict, and it is why
+p=1.7e-9 on a 15-point effect that cannot flip the strict verdict, and it is why
 the transcript has 744 entries rather than 800: a repeated prompt is asked
 once. And 400 questions is the floor at which this harness reliably
 separates a planted +5.7pp, so a smaller real effect could honestly have
@@ -233,7 +236,109 @@ carries every reported number together with the sha256 of the transcript
 bytes, the number of live calls the recording made and the tokens it spent;
 an edited transcript fails the build before any number is compared. If the arm is ever
 recorded again, the new run is added as a dated row with the reason for
-recording it, and the first row stays where it is.
+recording it, and the first row stays where it is. The re-scoring section
+below is the one exception to "nothing chosen after seeing an answer", and
+it is labelled as such.
+
+### Re-scoring the real-model arm: what the strict scorer measured
+
+**This is post hoc.** The rule in this section was chosen after the recorded
+replies had been read and the strict result was known. It does not replace
+the registered result: the recorded verdict above stays the strict one, and
+`test/real.test.ts` still pins it. What it can do is show what the strict
+scorer was measuring.
+
+The strict scorer reads the first token of a reply. Many routed replies open
+with working ("Let me carefully identify...") and state the answer at the
+end, and the strict scorer marks those wrong whatever the answer. `npm run
+rescore` replays the same transcript, with no network, and scores every reply
+a second way, on its final answer. The rules follow from the answer types
+the question generator produces. They were fixed before this scorer was run
+on either arm, but after the replies had been read:
+
+1. Everything from the first `CONFIDENCE:` (any case) to the end of the reply
+   is removed, as the strict scorer removes it.
+2. A reply with no `CONFIDENCE:` line counts as wrong, whatever it contains.
+   There are 27 such replies, all routed, and every one stopped at the
+   256-token limit. Five more replies reached the limit inside their
+   `CONFIDENCE:` line, after stating an answer, and are scored normally. 3 of
+   the 27 end on the right answer and still count as wrong.
+3. Numeric answers (ledger, timeline): the last number in the reply. A number
+   is a run of digits, optionally comma-grouped in threes and optionally with
+   a decimal part; commas are removed and the value is compared numerically.
+   A minus sign is not read, so a date such as 2025-03-15 never yields -15.
+4. yes/no answers (network, identity): the last standalone word `yes` or
+   `no`, in any case, with punctuation ignored. "nothing" or "know" is not
+   a "no".
+5. Any other answer: the last whitespace-separated token, lowercased and with
+   leading and trailing punctuation stripped, must equal the answer exactly;
+   a token that merely contains it does not count. The generator produces no
+   such answers, and the rule is there so the scorer has no lenient fallback.
+6. A reply with nothing of the required shape counts as wrong.
+
+`score()` in `src/real.ts` is untouched; the second scorer lives in
+`src/rescore.ts`.
+
+| system | strict | final answer |
+| :-- | :-- | :-- |
+| generalist priming | 331/400 (82.8%) | 352/400 (88.0%) |
+| careful-router routed priming | 271/400 (67.8%) | 364/400 (91.0%) |
+
+Per domain, correct out of 100, generalist / routed:
+
+| domain | strict | final answer |
+| :-- | :-- | :-- |
+| ledger | 100 / 77 | 100 / 100 |
+| network | 74 / 63 | 86 / 90 |
+| timeline | 74 / 32 | 74 / 74 |
+| identity | 83 / 99 | 92 / 100 |
+
+The paired comparison, from `ab-significance` with the same settings as the
+recorded arm (A is the generalist, B is routed; b counts questions only A got
+right, c questions only B got right; exact McNemar):
+
+| scorer | b | c | p | B-A, 95% interval | verdict |
+| :-- | :-- | :-- | :-- | :-- | :-- |
+| strict | 81 | 21 | 1.7e-9 | -15.0pp [-19.8, -10.3] | A better |
+| final answer | 22 | 34 | 0.141 | +3.0pp [-0.5, 6.8] | no separable difference |
+
+Why the strict scorer marked a reply wrong, and what the final-answer scorer
+makes of the same reply:
+
+| reason | generalist | routed | final-answer scorer |
+| :-- | :-- | :-- | :-- |
+| opened with working | 9 | 87 | right |
+| trailing punctuation ("No.") | 12 | 6 | right |
+| opened with a wrong answer, ended on the right one | 0 | 0 | right |
+| truncated at the 256-token limit | 0 | 27 | wrong |
+| genuinely wrong answer | 48 | 9 | wrong |
+| total | 69 | 129 | |
+
+No reply the strict scorer marked right is wrong on its final answer, and no
+recorded reply opens with "Yes."; the full-stop cases are all "No.".
+
+On the 81 questions the strict scorer gave to the generalist alone, 59
+routed replies end on the right answer (53 after opening with working, 6
+written "No.") and 22 ran out of tokens before answering. None of the 81 is a
+finished reply with a wrong answer. On final answers, the 22 questions only
+the generalist got right are those same 22 truncated routed replies, and all
+34 questions only routed got right are finished generalist replies with the
+wrong answer.
+
+**What this shows.** The strict first-token scorer measured answer format:
+its 15-point gap rests on routed replies that opened with working, ran out of
+tokens while working, or put a full stop after "No", and on none that
+finished with a wrong answer. On final answers the two systems score 88.0%
+and 91.0%, and the difference is not significant: exact McNemar p=0.141, with
+a 95% interval of -0.5 to +6.8 points that includes zero.
+
+**What it does not show.** It does not show that routing won: the difference
+on final answers is within noise, and the rule behind it was chosen after
+seeing the data. It does not show that routing lost either. Every question
+routed lost on final answers is a reply that ran out of tokens while working,
+so the result depends on the 256-token budget as well as on the priming. ECE
+is not re-scored. Settling the question would need a new recording with the
+scorer declared before the run.
 
 ## Run
 
@@ -243,6 +348,7 @@ npm run study     # the report above
 npm run arms      # the three failure arms
 npm run power     # the detection curve
 npm run real      # replay the recorded real-model arm (--live to record)
+npm run rescore   # re-score that arm on final answers (post hoc, replay only)
 npm test
 npm run typecheck
 ```
