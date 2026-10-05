@@ -152,10 +152,10 @@ that honestly?
   money (well under a dollar at `claude-haiku-4-5` pricing for the default
   400 questions), and is refused under CI.
 
-**Recorded 2026-09-02. Under strict first-token scoring, routing lost.** One
-recording, 744 live calls, replayed by every CI run since. That scorer turned
-out to measure the format of a reply as much as its answer; read
-[the re-scoring section](#re-scoring-the-real-model-arm-what-the-strict-scorer-measured)
+**Recorded 2026-09-02. The strict first-token scorer favoured the
+generalist.** One recording, 744 live calls, replayed by every CI run since.
+That scorer turned out to measure the format of a reply as much as its
+answer; read [the re-scoring section](#re-scoring-the-real-model-arm-what-the-strict-scorer-measured)
 before reading these tables as a finding about routing.
 
 Strict first-token scoring, as registered:
@@ -176,7 +176,9 @@ Per-domain accuracy under strict first-token scoring, generalist to routed:
 
 `ab-significance`: on the 400 examples both systems scored, A 82.8%, B 67.8%,
 McNemar p=0.0000 as printed and 1.7e-9 in the pinned summary, B-A -15.0pp
-[-19.8, -10.3]. A is better, beyond noise and beyond the declared bar.
+[-19.8, -10.3]. Under the strict scorer, A is better, beyond noise and
+beyond the declared bar. On final answers the difference is not significant
+(p=0.141); see the re-scoring section.
 `frozen-eval`: manifest 476d2916b67e, ledger 2 entries, chain intact,
 arithmetic replayed.
 
@@ -193,16 +195,17 @@ provenance:
 ```
 
 **What the strict scorer says.** For this model on these questions, telling
-an instance it is a domain specialist reduced its accuracy under strict
-first-token scoring on three domains out of four, and by 15 points overall.
-`careful-router` did exactly what its records told it to: for each question
-it picked a model that declared the needed capability at a lower price. The
-sharpest strict-scorer case is ledger, where the generalist was perfect and
-the routed instance, told to "add and count carefully, one row at a time",
-lost 23 points. Those 23 replies show their working first and give the right
-answer at the end, and the strict scorer reads only the first token. On final
-answers ledger is 100 against 100; the re-scoring section has the full
-account. Identity gained from priming under both scorers.
+an instance it is a domain specialist lowered its strict first-token score on
+three domains out of four, and by 15 points overall. On final answers no
+domain scored lower. `careful-router` did exactly what its records told it
+to: for each question it picked a model that declared the needed capability
+at a lower price. The sharpest strict-scorer case is ledger, where the
+generalist was perfect and the routed instance, told to "add and count
+carefully, one row at a time", scored 23 points lower. Those 23 replies show
+their working first and give the right answer at the end, and the strict
+scorer reads only the first token. On final answers ledger is 100 against
+100; the re-scoring section has the full account. Routed identity scored
+higher under both scorers.
 
 Calibration was scored against the same strict correctness: ECE 0.142 to
 0.253, and neither system clears the calibration bar. Those ECE figures carry
@@ -217,11 +220,13 @@ p=1.7e-9 on a 15-point effect that cannot flip the strict verdict, and it is why
 the transcript has 744 entries rather than 800: a repeated prompt is asked
 once. And 400 questions is the floor at which this harness reliably
 separates a planted +5.7pp, so a smaller real effect could honestly have
-come back "no separable difference". This one was nowhere near the floor.
+come back "no separable difference". The strict-scorer gap was nowhere near
+that floor. The final-answer gap, +3.0pp, is below it.
 
-This is one model, one prompt set, one day. It says whether routing to
-domain-primed instances helped this model on these questions, and whether
-the toolkit reported that honestly. It is not evidence about routing in
+This is one model, one prompt set, one day. It says how this model's replies
+scored under the registered first-token scorer and under a post-hoc
+final-answer scorer, and whether the toolkit reported that honestly. It does
+not settle whether routing helped. It is not evidence about routing in
 general, and a different model or a different priming could land anywhere.
 
 ### How to read the numbers
@@ -262,7 +267,9 @@ on either arm, but after the replies had been read:
    There are 27 such replies, all routed, and every one stopped at the
    256-token limit. Five more replies reached the limit inside their
    `CONFIDENCE:` line, after stating an answer, and are scored normally. 3 of
-   the 27 end on the right answer and still count as wrong.
+   the 27 would match the answer under rules 3 and 4 and still count as
+   wrong: 2 had already stated it, and `network-38` stopped mid-sentence,
+   where rule 4 finds a "no" in its working.
 3. Numeric answers (ledger, timeline): the last number in the reply. A number
    is a run of digits, optionally comma-grouped in threes and optionally with
    a decimal part; commas are removed and the value is compared numerically.
@@ -302,6 +309,12 @@ right, c questions only B got right; exact McNemar):
 | strict | 81 | 21 | 1.7e-9 | -15.0pp [-19.8, -10.3] | A better |
 | final answer | 22 | 34 | 0.141 | +3.0pp [-0.5, 6.8] | no separable difference |
 
+Over the 372 distinct prompts the final-answer result is b=22, c=29, p=0.40;
+the 28 duplicate identity prompts add 5 routed-only pairs to the +3.0pp.
+Counting the 5 replies that reached the 256-token limit inside their
+`CONFIDENCE:` line as truncated too gives p=0.42; the conclusion does not
+change.
+
 Why the strict scorer marked a reply wrong, and what the final-answer scorer
 makes of the same reply:
 
@@ -314,31 +327,49 @@ makes of the same reply:
 | genuinely wrong answer | 48 | 9 | wrong |
 | total | 69 | 129 | |
 
+A reply goes in one of the first three rows only when its final answer is
+right, and its first token decides which. That token is checked after
+stripping any trailing `.` or `-`, as `classify()` in `src/rescore.ts` does:
+if it then equals the answer the row is trailing punctuation, if it is some
+other number or yes/no the reply opened with a wrong answer, and anything
+else means it opened with working.
+
 No reply the strict scorer marked right is wrong on its final answer, and no
 recorded reply opens with "Yes."; the full-stop cases are all "No.".
 
 On the 81 questions the strict scorer gave to the generalist alone, 59
 routed replies end on the right answer (53 after opening with working, 6
-written "No.") and 22 ran out of tokens before answering. None of the 81 is a
-finished reply with a wrong answer. On final answers, the 22 questions only
-the generalist got right are those same 22 truncated routed replies, and all
-34 questions only routed got right are finished generalist replies with the
-wrong answer.
+written "No.") and 22 were cut off at the 256-token limit before their
+`CONFIDENCE:` line (2 of them after already stating the right answer). None
+of the 81 is a finished reply with a wrong answer. On final answers, the 22
+questions only the generalist got right are those same 22 truncated routed
+replies, and all 34 questions only routed got right are finished generalist
+replies with the wrong answer.
 
-**What this shows.** The strict first-token scorer measured answer format:
-its 15-point gap rests on routed replies that opened with working, ran out of
-tokens while working, or put a full stop after "No", and on none that
-finished with a wrong answer. On final answers the two systems score 88.0%
-and 91.0%, and the difference is not significant: exact McNemar p=0.141, with
-a 95% interval of -0.5 to +6.8 points that includes zero.
+**What this shows.** The strict first-token scorer largely measured answer
+format: its 15-point gap rests on routed replies that opened with working,
+were cut off at the 256-token limit before their `CONFIDENCE:` line, or put a
+full stop after "No", and on none that finished with a wrong answer. Largely,
+not entirely: 22 of its 81 generalist-only questions are those cut-offs, and
+they stay wrong on final answers. Every question asked for the answer only
+("Answer with the number only." or "Answer yes or no only."), while the
+routed ledger and timeline primings asked for working first, so the
+working-first openings and the cut-offs are side effects of the priming that
+the strict scorer correctly penalised under the registered rule. On final
+answers the two systems score 88.0% and 91.0%, and the difference is not
+significant: exact McNemar p=0.141, with a 95% interval of -0.5 to +6.8
+points that includes zero. The +3.0pp gap is also below what this arm can
+reliably detect, since 400 questions is the floor for separating a planted
+effect of +5.7pp, so not significant does not mean equal.
 
 **What it does not show.** It does not show that routing won: the difference
 on final answers is within noise, and the rule behind it was chosen after
 seeing the data. It does not show that routing lost either. Every question
-routed lost on final answers is a reply that ran out of tokens while working,
-so the result depends on the 256-token budget as well as on the priming. ECE
-is not re-scored. Settling the question would need a new recording with the
-scorer declared before the run.
+only the generalist got right on final answers is a routed reply cut off at
+the 256-token limit before its `CONFIDENCE:` line, so the result depends on
+the 256-token budget as well as on the priming. ECE is not re-scored.
+Settling the question would need a new recording with the scorer declared
+before the run.
 
 ## Run
 

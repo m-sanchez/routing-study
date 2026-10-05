@@ -1,5 +1,3 @@
-/** A post-hoc second scorer for the recorded real-model arm; `score()` in real.ts stays the registered one. */
-
 import { compareModels } from '@m-sanchez/ab-significance';
 import { DOMAINS } from './world.ts';
 import type { Domain } from './world.ts';
@@ -62,7 +60,6 @@ export type Category = (typeof CATEGORIES)[number];
 const isAnswerShaped = (token: string, kind: AnswerKind) =>
   kind === 'number' ? /^\d+(?:\.\d+)?$/.test(token) : kind === 'yes-no' ? token === 'yes' || token === 'no' : token !== '';
 
-/** Why a reply is marked wrong by at least one scorer, or null when both mark it right. */
 export function classify(q: Question, text: string): Category | null {
   const kind = answerKind(q.answer);
   const strict = score(q, text, '');
@@ -87,7 +84,6 @@ type Tally = Record<Category, number>;
 export interface ScorerSummary {
   correct: ByArm<number>;
   perDomain: Record<Domain, ByArm<number>>;
-  /** b: generalist right and routed wrong; c: generalist wrong and routed right */
   b: number;
   c: number;
   p: number;
@@ -104,9 +100,8 @@ export interface Rescore {
   scorers: Record<Scorer, ScorerSummary>;
   strictMisses: ByArm<Tally>;
   strictRightFinalWrong: ByArm<number>;
-  /** b: the routed replies on the scorer's b pairs; c: the generalist replies on its c pairs */
   discordant: Record<Scorer, { b: Tally; c: Tally }>;
-  truncated: ByArm<{ replies: number; endOnTheAnswer: number }>;
+  truncated: ByArm<{ replies: number; wouldMatch: number }>;
 }
 
 const emptyTally = (): Tally => Object.fromEntries(CATEGORIES.map((c) => [c, 0])) as Tally;
@@ -168,7 +163,7 @@ export async function runRescore(recorder: Recorder, opts: { seed?: number; perD
 
   const strictMisses = { generalist: emptyTally(), routed: emptyTally() };
   const strictRightFinalWrong = { generalist: 0, routed: 0 };
-  const truncated = { generalist: { replies: 0, endOnTheAnswer: 0 }, routed: { replies: 0, endOnTheAnswer: 0 } };
+  const truncated = { generalist: { replies: 0, wouldMatch: 0 }, routed: { replies: 0, wouldMatch: 0 } };
   for (const arm of ARMS) {
     for (const r of rows[arm]) {
       const why = classify(r.q, r.text);
@@ -176,7 +171,7 @@ export async function runRescore(recorder: Recorder, opts: { seed?: number; perD
       else if (!r.final.correct) strictRightFinalWrong[arm]++;
       if (r.final.truncated) {
         truncated[arm].replies++;
-        if (r.final.said !== null && sameAnswer(r.final.said, r.q.answer, answerKind(r.q.answer))) truncated[arm].endOnTheAnswer++;
+        if (r.final.said !== null && sameAnswer(r.final.said, r.q.answer, answerKind(r.q.answer))) truncated[arm].wouldMatch++;
       }
     }
   }
@@ -268,7 +263,7 @@ export function formatRescore(r: Rescore): string {
   out.push(
     '',
     `truncated at the 256-token limit: generalist ${r.truncated.generalist.replies}, routed ${r.truncated.routed.replies}; ` +
-      `${r.truncated.routed.endOnTheAnswer + r.truncated.generalist.endOnTheAnswer} of them end on the right answer and still count as wrong`,
+      `${r.truncated.routed.wouldMatch + r.truncated.generalist.wouldMatch} of them would match the answer under rules 3 and 4 and still count as wrong`,
     '',
     'The final-answer rule was chosen after the data was seen. It shows what the strict scorer measured;',
     'it is not a new registered result, and the recorded verdict stays the strict one.'

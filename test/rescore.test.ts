@@ -15,6 +15,7 @@ import {
 } from '../src/real.ts';
 import type { Question, RealSummary, TranscriptEntry } from '../src/real.ts';
 import { classify, finalAnswer, formatRescore, isTruncated, runRescore, scoreFinal } from '../src/rescore.ts';
+import { compareModels } from '@m-sanchez/ab-significance';
 
 const TRANSCRIPT_SHA256 = '762f627649e915d05fec6f1939973409cc5e77a235532d0d2d50699c93a6b4ff';
 const SUMMARY_SHA256 = '5e846fcf38018cba4a2eabf43ebebacbd739fd45ae66841273313f726b20cae6';
@@ -22,10 +23,13 @@ const SUMMARY_SHA256 = '5e846fcf38018cba4a2eabf43ebebacbd739fd45ae66841273313f72
 const transcript = loadTranscript(TRANSCRIPT_PATH);
 const questions = new Map(generateQuestions(100, 1).map((q) => [q.id, q]));
 
-function recorded(arm: 'generalist' | 'routed', id: string): { q: Question; text: string } {
+type Arm = 'generalist' | 'routed';
+
+function recorded(arm: Arm, id: string): { q: Question; text: string; output?: number } {
   const q = questions.get(id)!;
   const priming = arm === 'generalist' ? PRIMING.generalist : PRIMING[q.domain];
-  return { q, text: transcript.get(keyOf(REAL_MODEL, priming, q.prompt))!.text };
+  const entry = transcript.get(keyOf(REAL_MODEL, priming, q.prompt))!;
+  return { q, text: entry.text, output: entry.usage?.output };
 }
 
 const sha256 = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
@@ -77,6 +81,15 @@ test('"No." keeps its full stop under the strict scorer and loses it under the f
   assert.equal(classify(yes, 'Yes.\n\nCONFIDENCE: 0.9'), 'trailing punctuation');
 });
 
+test('a strict miss right on its final answer is classified by its first token with a trailing . or - stripped', () => {
+  const yesNo = questions.get('network-19')!;
+  assert.equal(classify(yesNo, 'Yes. Tracing again, no.\n\nCONFIDENCE: 0.6'), 'opened with a wrong answer');
+  const n = questions.get('timeline-52')!;
+  assert.equal(classify(n, '102-\n\nCONFIDENCE: 0.9'), 'trailing punctuation');
+  assert.equal(classify(n, '101- no, 102\n\nCONFIDENCE: 0.9'), 'opened with a wrong answer');
+  assert.equal(classify(n, 'Counting days: 102\n\nCONFIDENCE: 0.9'), 'opened with working');
+});
+
 test('no recorded reply opens with "Yes."; every full-stop opening is "No."', () => {
   const texts = [...transcript.values()].map((e) => e.text);
   assert.equal(texts.filter((t) => /^yes\./i.test(t)).length, 0);
@@ -95,6 +108,16 @@ test('a reply cut off before its CONFIDENCE line is wrong, even when its last nu
   assert.equal(finalAnswer(lucky.text, 'number'), '102');
   assert.equal(scoreFinal(lucky.q, lucky.text).correct, false, 'a truncated reply is wrong whatever it last said');
   assert.equal(classify(lucky.q, lucky.text), 'truncated');
+
+  const wouldMatch = [...questions.keys()].filter((id) => {
+    const r = recorded('routed', id);
+    const f = scoreFinal(r.q, r.text);
+    return f.truncated && f.said === r.q.answer;
+  });
+  assert.deepEqual(wouldMatch, ['network-38', 'timeline-20', 'timeline-52']);
+  assert.match(recorded('routed', 'timeline-20').text, /211 - 105 = 106 days$/);
+  assert.match(recorded('routed', 'network-38').text, /There are no incoming links to D\. The only$/, 'stopped mid-sentence');
+  for (const id of wouldMatch) assert.equal(scoreFinal(recorded('generalist', id).q, recorded('generalist', id).text).correct, true, id);
 });
 
 test('a finished reply with the wrong answer is wrong under both scorers', () => {
@@ -161,6 +184,45 @@ test('on final answers, the questions only the generalist got right are the trun
   assert.deepEqual(finalB, strictB);
 });
 
+function pairs(ids: string[], right: (arm: Arm, id: string) => boolean) {
+  const side = (arm: Arm) => ids.map((id) => ({ id, correct: right(arm, id) }));
+  const cmp = compareModels(side('generalist'), side('routed'), { minEffectPct: 2 });
+  return { b: cmp.table.aOnly, c: cmp.table.bOnly, p: sig12(cmp.mcnemar.p), verdict: cmp.verdict };
+}
+
+const finalRight = (arm: Arm, id: string) => scoreFinal(recorded(arm, id).q, recorded(arm, id).text).correct;
+
+test('the final-answer result stays not significant over distinct prompts and with the late cut-offs counted as truncated', () => {
+  const seen = new Set<string>();
+  const distinct: string[] = [];
+  const repeats: string[] = [];
+  for (const [id, q] of questions) {
+    (seen.has(q.prompt) ? repeats : distinct).push(id);
+    seen.add(q.prompt);
+  }
+  assert.equal(distinct.length, 372);
+  assert.deepEqual(pairs(distinct, finalRight), { b: 22, c: 29, p: 0.401061991028, verdict: 'no separable difference' });
+  assert.deepEqual(pairs(distinct, (arm, id) => score(recorded(arm, id).q, recorded(arm, id).text, '').correct), {
+    b: 81,
+    c: 16,
+    p: 1.23853126836e-11,
+    verdict: 'A better'
+  });
+  const routedOnly = repeats.filter((id) => !finalRight('generalist', id) && finalRight('routed', id));
+  const generalistOnly = repeats.filter((id) => finalRight('generalist', id) && !finalRight('routed', id));
+  assert.deepEqual([repeats.length, generalistOnly.length, routedOnly.length], [28, 0, 5]);
+
+  const lateCutOff = (arm: Arm, id: string) => finalRight(arm, id) && recorded(arm, id).output !== 256;
+  assert.deepEqual(pairs([...questions.keys()], lateCutOff), { b: 24, c: 31, p: 0.418754188269, verdict: 'no separable difference' });
+});
+
+test('every question asks for the answer only, and the routed ledger and timeline primings ask for working first', () => {
+  for (const q of questions.values()) assert.match(q.prompt, /(?:Answer with the number only\.|Answer yes or no only\.)$/, q.id);
+  assert.match(PRIMING.ledger, /one row at a time, before answering/);
+  assert.match(PRIMING.timeline, /converting to day numbers before subtracting/);
+  assert.doesNotMatch(PRIMING.generalist, /before/);
+});
+
 const PINNED = {
   n: 400,
   scorers: {
@@ -212,7 +274,7 @@ const PINNED = {
       c: { 'opened with working': 0, 'trailing punctuation': 0, 'opened with a wrong answer': 0, truncated: 0, 'genuinely wrong answer': 34 }
     }
   },
-  truncated: { generalist: { replies: 0, endOnTheAnswer: 0 }, routed: { replies: 27, endOnTheAnswer: 3 } }
+  truncated: { generalist: { replies: 0, wouldMatch: 0 }, routed: { replies: 27, wouldMatch: 3 } }
 };
 
 const PRINTED = [
@@ -250,7 +312,7 @@ const PRINTED = [
   '  final answer b: the 22 routed replies where only the generalist was right: truncated 22',
   '  final answer c: the 34 generalist replies where only routed was right: genuinely wrong answer 34',
   '',
-  'truncated at the 256-token limit: generalist 0, routed 27; 3 of them end on the right answer and still count as wrong',
+  'truncated at the 256-token limit: generalist 0, routed 27; 3 of them would match the answer under rules 3 and 4 and still count as wrong',
   '',
   'The final-answer rule was chosen after the data was seen. It shows what the strict scorer measured;',
   'it is not a new registered result, and the recorded verdict stays the strict one.'

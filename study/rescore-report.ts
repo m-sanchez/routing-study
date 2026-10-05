@@ -1,5 +1,3 @@
-/** npm run rescore: the recorded real-model replies scored on final answers beside the strict scorer, replay only. */
-
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { SUMMARY_PATH, TRANSCRIPT_PATH, loadTranscript, replayAsker } from '../src/real.ts';
