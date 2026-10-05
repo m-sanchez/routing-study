@@ -63,7 +63,7 @@ for (const d of Object.keys(report.systems[0].perDomain)) {
   console.log(`  ${d.padEnd(10)} ${(g * 100).toFixed(1)}% -> ${(r * 100).toFixed(1)}%  (${delta >= 0 ? '+' : ''}${delta.toFixed(1)}pp)`);
 }
 
-console.log(`\nab-significance: ${report.comparison.statement}`);
+console.log(`\nab-significance, strict first-token scoring as registered: ${report.comparison.statement}`);
 console.log(
   `frozen-eval: manifest ${report.manifestHash.slice(0, 12)}…, ledger ${report.ledger.entries} entries, ` +
     `chain ${report.ledger.intact ? 'intact' : 'BROKEN'}, arithmetic ${report.ledger.replayed ? 'replayed' : 'not replayed'}`
@@ -85,9 +85,11 @@ console.log(`  transcript       sha256 ${summary.transcriptSha256.slice(0, 12)}`
 console.log(`  mode             ${report.mode}${report.mode === 'replay' ? ' (no network)' : ''}`);
 
 console.log(
-  '\nThis is one model, one prompt set, one day. It says whether routing to\n' +
-    'domain-primed instances helped THIS model on THESE questions, and whether\n' +
-    'the toolkit reported that honestly. It is not evidence about routing in general.'
+  "\nThis is one model, one prompt set, one day. It says how this model's replies\n" +
+    'scored under the registered first-token scorer, and whether the toolkit\n' +
+    'reported that honestly. It does not settle whether routing helped: npm run\n' +
+    'rescore scores the same replies on their final answers (post hoc). It is not\n' +
+    'evidence about routing in general.'
 );
 
 if (live && report.liveCalls === 0 && pinned) {

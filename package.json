@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "power": "node study/power.ts",
     "arms": "node study/arms-report.ts",
-    "real": "node study/real-report.ts"
+    "real": "node study/real-report.ts",
+    "rescore": "node study/rescore-report.ts"
   },
   "repository": {
     "type": "git",
